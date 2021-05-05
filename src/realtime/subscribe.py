@@ -1,9 +1,11 @@
-from typing import Union, AsyncGenerator
-from realtime.messages import parse, Message, TransactionMessage
 import asyncio
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Union
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
-from sqlalchemy import text, select, literal, literal_column
+
+from realtime.messages import Message, parse
 
 Connection = Union[AsyncSession, AsyncEngine, AsyncConnection]
 
@@ -34,7 +36,8 @@ async def replication_slot(
     slot_name: str, con: Connection
 ) -> AsyncGenerator[None, None]:
 
-    CREATE_SLOT = text("""
+    CREATE_SLOT = text(
+        """
     with check_exists as (
         SELECT
             count(1) = 1 as already_exists
@@ -46,11 +49,11 @@ async def replication_slot(
 
     SELECT
         CASE
-            WHEN already_exists THEN 0 
+            WHEN already_exists THEN 0
             ELSE (
                 SELECT
                     1
-                FROM 
+                FROM
                     pg_create_logical_replication_slot(
                         :slot_name,
                         'test_decoding'
@@ -60,7 +63,6 @@ async def replication_slot(
     FROM
         check_exists
     """
-
         ""
     )
     DROP_SLOT = text("SELECT pg_drop_replication_slot(:slot_name);")

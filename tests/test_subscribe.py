@@ -1,8 +1,9 @@
 import pytest
-from realtime.subscribe import subscribe, replication_slot
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncConnection, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+
+from realtime.subscribe import replication_slot, subscribe
 
 
 @pytest.mark.asyncio

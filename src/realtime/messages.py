@@ -1,9 +1,9 @@
-from dataclasses import dataclass
-from typing_extensions import Annotated, Protocol
-from typing import Any, Callable, Type, List, Literal, TypeVar
-from functools import lru_cache
 from abc import abstractmethod
+from dataclasses import dataclass
+from typing import List, Literal, Type, TypeVar
+
 import regex
+from typing_extensions import Protocol
 
 from realtime.exceptions import ParseFailureException
 

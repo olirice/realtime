@@ -1,4 +1,4 @@
-# Realtime 
+# Realtime
 
 <p>
 
@@ -25,7 +25,7 @@
 
 ---
 
-Realtime enables listening for changes in a PostgreSQL Database 
+Realtime enables listening for changes in a PostgreSQL Database
 
 This package is under active development and may change significantly. There is no stability guarentee. If you see something you like, please vendor it, or use at your own risk.
 

@@ -43,7 +43,7 @@ DEV_REQUIRES = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "sqlalchemy[mypy]>=1.4"
+    "sqlalchemy[mypy]>=1.4",
 ]
 
 setuptools.setup(

@@ -6,12 +6,10 @@ from typing import AsyncGenerator, Generator
 
 import pytest
 import sqlalchemy
-from sqlalchemy import Column, Integer, MetaData, Table, text, create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Mapper, Session, mapper, sessionmaker
-
+from sqlalchemy.orm import Session, sessionmaker
 
 TEST_SLOT_NAME = "test_realtime_py"
 
@@ -26,13 +24,13 @@ LOGICAL_SETUP = [
 #    text("CREATE PUBLICATION realtime_pub FOR ALL TABLES;"),
 #    text(
 #        f"""
-#select
+# select
 #    (SELECT 1 FROM pg_create_logical_replication_slot('{TEST_SLOT_NAME}', 'test_decoding'))
-#FROM
+# FROM
 #    generate_series(1, -1* ((select count(1) from pg_replication_slots where slot_name = '{TEST_SLOT_NAME}') - 1)) as xyz(ix)
 #    """
-#)
-#]
+# )
+# ]
 
 
 @pytest.fixture(scope="session")
@@ -69,8 +67,6 @@ def dockerize_database() -> Generator[None, None, None]:
             conn.execute(command)
         sync_engine.dispose()
         res = subprocess.check_output(["docker", "restart", "realtime_pg"])
-
-        
 
     # Skip container setup if in CI
     if not "GITHUB_SHA" in os.environ and not is_ready():
@@ -124,11 +120,11 @@ async def engine(dockerize_database: None) -> AsyncGenerator[AsyncEngine, None]:
     yield eng
     await eng.dispose()
 
+
 @pytest.fixture(scope="function")
 async def conn(engine: AsyncEngine) -> AsyncGenerator[AsyncEngine, None]:
     async with engine.connect() as c:
         yield c
-
 
 
 @pytest.fixture(scope="function")
