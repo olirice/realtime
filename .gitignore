@@ -1,4 +1,3 @@
-docs/*
 # Temporary Python files
 *.pyc
 *.egg-info
@@ -42,7 +41,6 @@ venv/*
 /docs/_build/
 /site/
 /*.html
-/*.rst
 /docs/*.png
 
 # Google Drive
