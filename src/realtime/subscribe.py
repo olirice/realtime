@@ -19,13 +19,14 @@ async def subscribe(
 
     async with replication_slot(slot_name=slot_name, con=con):
 
-        cursor = await con.execute(GET_UPDATES, {"slot_name": slot_name})
+        while True:
+            cursor = await con.execute(GET_UPDATES, {"slot_name": slot_name})
 
-        for _, _, data in cursor:
-            yield parse(data)
+            for _, _, data in cursor:
+                yield parse(data)
 
-        # Sleep for 0.25 seconds before polling again
-        await asyncio.sleep(poll_delay)
+            # Sleep for 0.25 seconds before polling again
+            await asyncio.sleep(poll_delay)
 
 
 @asynccontextmanager
@@ -33,21 +34,39 @@ async def replication_slot(
     slot_name: str, con: Connection
 ) -> AsyncGenerator[None, None]:
 
-    CHECK_SLOT = text(
-        "SELECT count(1) FROM pg_replication_slots where slot_name = :slot_name"
+    CREATE_SLOT = text("""
+    with check_exists as (
+        SELECT
+            count(1) = 1 as already_exists
+        FROM
+            pg_replication_slots
+        WHERE
+            slot_name = :slot_name
     )
-    CREATE_SLOT = text(
-        "SELECT * FROM pg_create_logical_replication_slot(:slot_name, 'test_decoding');"
+
+    SELECT
+        CASE
+            WHEN already_exists THEN 0 
+            ELSE (
+                SELECT
+                    1
+                FROM 
+                    pg_create_logical_replication_slot(
+                        :slot_name,
+                        'test_decoding'
+                    )
+            )
+        END as res
+    FROM
+        check_exists
+    """
+
+        ""
     )
     DROP_SLOT = text("SELECT pg_drop_replication_slot(:slot_name);")
 
     params = dict(slot_name=slot_name)
 
-    ((exists,),) = await con.execute(CHECK_SLOT, params)
-
-    if not exists:
-        await con.execute(CREATE_SLOT, params)
-
+    await con.execute(CREATE_SLOT, params)
     yield
-
     await con.execute(DROP_SLOT, params)
