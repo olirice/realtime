@@ -41,7 +41,7 @@ Oli
 from realtime.subscribe import subscribe
 from sqlalchemy.ext.asyncio import create_async_engine
 
-connection_string = "postgresql+asyncpg://<user>:<password>@<host>:<port>/<database>
+connection_string = "postgresql+asyncpg://<user>:<password>@<host>:<port>/<database>"
 
 engine = create_async_engine(connection_string)
 
