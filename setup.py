@@ -39,6 +39,7 @@ DEV_REQUIRES = [
     "black",
     "mypy",
     "neovim",
+    "psycopg2-binary",
     "pylint",
     "pytest",
     "pytest-asyncio",
