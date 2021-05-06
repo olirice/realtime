@@ -1,17 +1,15 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Union
+from typing import AsyncGenerator
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection
 
-from realtime.messages import Message, parse
-
-Connection = Union[AsyncSession, AsyncEngine, AsyncConnection]
+from realtime.message import Message, parse
 
 
 async def subscribe(
-    con: Connection, slot_name: str = "realtime_py", poll_delay: int = 0.1
+    con: AsyncConnection, slot_name: str = "realtime_py", poll_delay: float = 0.1
 ) -> AsyncGenerator[Message, None]:
     """Subscribe to a PostgreSQL +9.4 database for changes"""
 
@@ -33,7 +31,7 @@ async def subscribe(
 
 @asynccontextmanager
 async def replication_slot(
-    slot_name: str, con: Connection
+    slot_name: str, con: AsyncConnection
 ) -> AsyncGenerator[None, None]:
 
     CREATE_SLOT = text(

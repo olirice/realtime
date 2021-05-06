@@ -44,7 +44,7 @@ class TransactionMessage(Message):
             raise ParseFailureException("Failed to parse message: {}".format(message))
 
         command = match.captures(1)[0]
-        lsn = match.captures(2)[0]
+        lsn = int(match.captures(2)[0])
 
         return cls(
             command=command,

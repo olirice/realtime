@@ -8,8 +8,13 @@ import pytest
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
+    AsyncEngine,
+    AsyncSession,
+    create_async_engine,
+)
+from sqlalchemy.orm import sessionmaker
 
 TEST_SLOT_NAME = "test_realtime_py"
 
@@ -20,17 +25,6 @@ LOGICAL_SETUP = [
     text("ALTER SYSTEM SET wal_level = logical;"),
     text("ALTER SYSTEM SET max_replication_slots = 5;"),
 ]
-
-#    text("CREATE PUBLICATION realtime_pub FOR ALL TABLES;"),
-#    text(
-#        f"""
-# select
-#    (SELECT 1 FROM pg_create_logical_replication_slot('{TEST_SLOT_NAME}', 'test_decoding'))
-# FROM
-#    generate_series(1, -1* ((select count(1) from pg_replication_slots where slot_name = '{TEST_SLOT_NAME}') - 1)) as xyz(ix)
-#    """
-# )
-# ]
 
 
 @pytest.fixture(scope="session")
@@ -122,13 +116,13 @@ async def engine(dockerize_database: None) -> AsyncGenerator[AsyncEngine, None]:
 
 
 @pytest.fixture(scope="function")
-async def conn(engine: AsyncEngine) -> AsyncGenerator[AsyncEngine, None]:
+async def conn(engine: AsyncEngine) -> AsyncGenerator[AsyncConnection, None]:
     async with engine.connect() as c:
         yield c
 
 
 @pytest.fixture(scope="function")
-async def sess(engine: AsyncEngine) -> AsyncGenerator[Session, None]:
+async def sess(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
 
     Session = sessionmaker(  # type: ignore
         bind=engine,

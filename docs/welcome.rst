@@ -11,7 +11,7 @@ Welcome to Realtime
 ---
 
 
-Realtime enables listening for changes in a PostgreSQL Database 
+Realtime enables listening for changes in a PostgreSQL Database
 
 Usecases:
 

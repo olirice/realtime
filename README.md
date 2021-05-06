@@ -32,3 +32,42 @@ This package is under active development and may change significantly. There is 
 Thanks,
 
 Oli
+
+
+
+## Usage
+
+```python
+from realtime.subscribe import subscribe
+from sqlalchemy.ext.asyncio import create_async_engine
+
+connection_string = "postgresql+asyncpg://<user>:<password>@<host>:<port>/<database>
+
+engine = create_async_engine(connection_string)
+
+async with engine.connect() as conn:
+
+    subscription = subscribe(con=conn, slot_name="realtime_example")
+
+    async for message in subscription:
+        # Business Logic Goes Here
+        print(message)
+```
+
+where example outputs are:
+
+```python
+from realtime.message import TransactionMessage, CRUDMessage, Column
+
+TransactionMessage(command="COMMIT", lsn=95)
+# OR
+CRUDMessage(
+    command="INSERT",
+    schema="public",
+    table="account",
+    columns=[
+        Column(column="id", data_type="integer", value=5),
+        Column(column="email", data_type="text", value="example@example.com"),
+    ]
+)
+```
