@@ -1,6 +1,5 @@
-from abc import abstractmethod
 from dataclasses import dataclass
-from typing import List, Literal, Type, TypeVar
+from typing import List, Literal, Optional, TypeVar, Union
 
 import regex
 from typing_extensions import Protocol
@@ -15,11 +14,6 @@ T = TypeVar("T", bound="Message")
 class Message(Protocol):
     command: Literal["BEGIN", "COMMIT", "INSERT", "UPDATE", "DELETE"]
 
-    @classmethod
-    @abstractmethod
-    def parse(cls: Type[T], message: str) -> T:
-        raise NotImplementedError()
-
 
 @dataclass
 class TransactionMessage(Message):
@@ -33,23 +27,6 @@ class TransactionMessage(Message):
 
     command: Literal["BEGIN", "COMMIT"]
     lsn: int
-
-    @classmethod
-    def parse(cls: Type["TransactionMessage"], message: str) -> "TransactionMessage":
-        """initialize a TransactionMessage instance from a logical replication string message"""
-        expression = r"^(BEGIN|COMMIT) (\d+)$"
-        match = regex.match(expression, message)
-
-        if not match:
-            raise ParseFailureException("Failed to parse message: {}".format(message))
-
-        command = match.captures(1)[0]
-        lsn = int(match.captures(2)[0])
-
-        return cls(
-            command=command,
-            lsn=lsn,
-        )
 
 
 @dataclass
@@ -71,41 +48,82 @@ class CRUDMessage(Message):
     """
 
     command: Literal["INSERT", "UPDATE", "DELETE"]
-    schema: str
+    schema: Optional[str]
     table: str
     columns: List[Column]
 
-    @classmethod
-    def parse(cls: Type["CRUDMessage"], message: str) -> "CRUDMessage":
-        """initialize a CRUDMessage instance from a logical replication string message"""
-        expression = r"""table (?P<schema>[\w"]*).(?P<table_name>[\w"]*): (?P<command>UPDATE|INSERT|DELETE):( ([\w"]*)\[([\w"]*)\]:(.+?))*$"""
+
+def parse(message: str) -> Union[TransactionMessage, CRUDMessage]:
+    from realtime.parse_utils import (
+        postprocess,
+        preprocess,
+        read,
+        read_column,
+        read_until,
+    )
+
+    # First try to parse a transaction message
+    # BEGIN 601
+
+    if message[0] in ("B", "C"):
+        expression = r"^(BEGIN|COMMIT) (\d+)$"
         match = regex.match(expression, message)
 
         if not match:
             raise ParseFailureException("Failed to parse message: {}".format(message))
 
-        command = match.captures(3)[0]
-        schema = match.captures(1)[0]
-        table = match.captures(2)[0]
+        command = match.captures(1)[0]
+        lsn = int(match.captures(2)[0])
 
-        columns = [
-            Column(column=column, data_type=data_type, value=value)
-            for column, data_type, value in zip(
-                match.captures(5), match.captures(6), match.captures(7)
-            )
-        ]
+        return TransactionMessage(
+            command=command,
+            lsn=lsn,
+        )
 
-        return cls(command=command, schema=schema, table=table, columns=columns)
+    elif message[0] == "t":
 
+        # table schema.table: .....
+        remaining = preprocess(message)
 
-def parse(msg: str) -> Message:
-    """Parses a `output_slot=test_decoding` logical replication message from Postgres 9.4+"""
+        # schema.table: ....
+        _, remaining = read_until(remaining, " ")
 
-    # CRUDMessage always begins with "table ..."
-    if msg[0] == "t":
-        return CRUDMessage.parse(msg)
-    # TransactionMessage always begins with "BEGIN ..." or "COMMIT ..."
-    elif msg[0] in ("B", "C"):
-        return TransactionMessage.parse(msg)
+        # schema.table OR table
+        schema_and_table, remaining = read_until(remaining, ": ")
 
-    raise ParseFailureException("Failed to parse message: {}".format(msg))
+        if "." in schema_and_table:
+            schema_maybe_quoted, _, table_maybe_quoted = schema_and_table.partition(".")
+            # schema, _ = read_escaped(schema_maybe_quoted)
+            # table, _ = read_escaped(table_maybe_quoted)
+            schema, _ = read(schema_maybe_quoted)
+            table, _ = read(table_maybe_quoted)
+        else:
+            schema = None
+            # table, _ = read_escaped(schema_and_table)
+            table, _ = read(schema_and_table)
+
+        assert table is not None
+
+        # *schema* and *table* now set
+
+        # COMMAND: col[type]:value ...
+        command, remaining = read_until(remaining, ": ")
+
+        column, remaining = read_column(remaining)
+        columns = []
+        while column[0] != "":
+            columns.append(column)
+            column, remaining = read_column(remaining)
+            remaining = remaining.strip()
+
+        return CRUDMessage(
+            schema=postprocess(schema) if schema else None,
+            table=postprocess(table),
+            command=postprocess(command),  # type: ignore
+            columns=[
+                Column(postprocess(a), postprocess(b), postprocess(c))
+                for a, b, c in columns
+            ],
+        )
+
+    raise ParseFailureException("Failed to parse message: {}".format(message))
