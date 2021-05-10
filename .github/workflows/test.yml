@@ -16,7 +16,7 @@ jobs:
           POSTGRES_USER: pytest
           POSTGRES_PASSWORD: pytest_password
         ports:
-        - 6018:5432
+        - 6012:5432
 
     strategy:
         matrix:
