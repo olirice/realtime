@@ -34,6 +34,46 @@ Thanks,
 Oli
 
 
+## Setup
+
+Realtime relies on postgres using logical replication. Set it up using:
+
+```sql
+-- Ensure WAL replication is set to 'logical'
+ALTER SYSTEM SET wal_level = logical;
+
+-- Allow a few replication slots
+ALTER SYSTEM SET max_replication_slots = 5; -- any value > 0
+
+/*
+-- Create a publication
+Spec:
+    CREATE PUBLICATION name
+        [ FOR TABLE [ ONLY ] table_name [ * ] [, ...]
+          | FOR ALL TABLES ]
+        [ WITH ( publication_parameter [= value] [, ... ] ) ]
+*/
+CREATE PUBLICATION realtime_py FOR ALL TABLES;
+```
+
+Then, restart your postgres instance.
+
+#### Notes
+
+##### Docker
+If you're using docker, you can restart the postgres instance after issuing the commands above via
+```
+docker restart <container_name>
+```
+
+##### AWS - RDS
+AWS RDS does not grant superuser access to postgres instances. That level of access is required to issue `ALTER SYSTEM` commands. To enable logical replication on RDS, the value for `wal_level` can be set by creating a new parameter group and assigning it to the RDS instance.
+
+A reboot will still be required. That can also be done from the RDS UI.
+```
+RDS > Databases > <your database> > Configuration > Parameter group
+```
+
 
 ## Usage
 
