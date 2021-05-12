@@ -9,7 +9,10 @@ from realtime.message import Message, parse
 
 
 async def subscribe(
-    con: AsyncConnection, slot_name: str = "realtime_py", poll_delay: float = 0.1
+    con: AsyncConnection,
+    slot_name: str = "realtime_py",
+    poll_delay: float = 0.1,
+    drop_on_close: bool = True,
 ) -> AsyncGenerator[Message, None]:
     """Subscribe to a PostgreSQL +9.4 database for changes"""
 
@@ -17,7 +20,9 @@ async def subscribe(
         "SELECT lsn, xid, data from pg_logical_slot_get_changes(:slot_name, NULL, NULL)"
     )
 
-    async with replication_slot(slot_name=slot_name, con=con):
+    async with replication_slot(
+        slot_name=slot_name, con=con, drop_on_close=drop_on_close
+    ):
 
         while True:
             cursor = await con.execute(GET_UPDATES, {"slot_name": slot_name})
@@ -31,7 +36,7 @@ async def subscribe(
 
 @asynccontextmanager
 async def replication_slot(
-    slot_name: str, con: AsyncConnection
+    slot_name: str, con: AsyncConnection, drop_on_close: bool
 ) -> AsyncGenerator[None, None]:
 
     CREATE_SLOT = text(
@@ -68,5 +73,8 @@ async def replication_slot(
     params = dict(slot_name=slot_name)
 
     await con.execute(CREATE_SLOT, params)
-    yield
-    await con.execute(DROP_SLOT, params)
+    try:
+        yield
+    finally:
+        if drop_on_close:
+            await con.execute(DROP_SLOT, params)
