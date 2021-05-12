@@ -49,7 +49,7 @@ def read(text: str) -> Tuple[Optional[str], str]:
     return token, remain
 
 
-def read_column(text: str) -> Tuple[Tuple[str, str, str], str]:
+def read_column(text: str) -> Tuple[Tuple[str, str, Optional[str]], str]:
     # column_name[type]:value
     name, remain = read(text)
     type_, remain = read(remain)

@@ -33,7 +33,7 @@ class TransactionMessage(Message):
 class Column:
     column: str
     data_type: str
-    value: str
+    value: Optional[str]
 
 
 @dataclass
@@ -121,8 +121,12 @@ def parse(message: str) -> Union[TransactionMessage, CRUDMessage]:
             table=postprocess(table),
             command=postprocess(command),  # type: ignore
             columns=[
-                Column(postprocess(a), postprocess(b), postprocess(c))
-                for a, b, c in columns
+                Column(
+                    postprocess(col_name),
+                    postprocess(type_),
+                    postprocess(value) if value is not None else None,
+                )
+                for col_name, type_, value in columns
             ],
         )
 
