@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -6,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from realtime.subscribe import replication_slot, subscribe
 
 
+@pytest.mark.skipif("GITHUB_SHA" in os.environ)
 @pytest.mark.asyncio
 async def test_create_slot(conn: AsyncConnection) -> None:
     async with replication_slot(slot_name="test_create_slot", con=conn):
