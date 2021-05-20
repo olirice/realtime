@@ -5,7 +5,6 @@ import time
 from typing import AsyncGenerator, Generator
 
 import pytest
-import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import (
@@ -14,17 +13,11 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     create_async_engine,
 )
-from sqlalchemy.orm import sessionmaker
 
 TEST_SLOT_NAME = "test_realtime_py"
 
 SYNC_CONN_STR = "postgresql://pytest:pytest_password@localhost:6012/realtime"
 CONN_STR = "postgresql+asyncpg://pytest:pytest_password@localhost:6012/realtime"
-
-LOGICAL_SETUP = [
-    text("ALTER SYSTEM SET wal_level = logical;"),
-    text("ALTER SYSTEM SET max_replication_slots = 5;"),
-]
 
 
 @pytest.fixture(scope="session")
@@ -50,17 +43,6 @@ def dockerize_database() -> Generator[None, None, None]:
             time.sleep(1)
         else:
             raise Exception("Container never became healthy")
-
-    def prep_database() -> None:
-        """Set up for logical replication"""
-        sync_engine = create_engine(SYNC_CONN_STR).execution_options(
-            isolation_level="AUTOCOMMIT"
-        )
-        conn = sync_engine.connect()
-        for command in LOGICAL_SETUP:
-            conn.execute(command)
-        sync_engine.dispose()
-        res = subprocess.check_output(["docker", "restart", "realtime_pg"])
 
     # Skip container setup if in CI
     if not "GITHUB_SHA" in os.environ and not is_ready():
@@ -89,69 +71,31 @@ def dockerize_database() -> Generator[None, None, None]:
                 "3s",
                 "--health-retries",
                 "10",
-                "postgres:13",
+                "supabase/postgres:0.14.0",
             ]
         )
         wait_until_ready()
 
     # Wait for postgres to become healthy
-    prep_database()
     wait_until_ready()
     yield
-    subprocess.call(["docker", "stop", "realtime_pg"])
+    subprocess.call(["docker", "stop", container_name])
 
 
 @pytest.fixture(scope="function")
 def sync_engine(dockerize_database: None) -> Generator[Engine, None, None]:
     eng = create_engine(SYNC_CONN_STR)
     yield eng
-    eng.dispose()
 
 
 @pytest.fixture(scope="function")
 async def engine(dockerize_database: None) -> AsyncGenerator[AsyncEngine, None]:
     eng = create_async_engine(CONN_STR)
     yield eng
-    await eng.dispose()
 
 
 @pytest.fixture(scope="function")
 async def conn(engine: AsyncEngine) -> AsyncGenerator[AsyncConnection, None]:
-    async with engine.connect() as c:
-        yield c
-
-
-@pytest.fixture(scope="function")
-async def sess(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
-
-    Session = sessionmaker(  # type: ignore
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-    async with engine.begin() as conn:
-
-        # Bind a session to the top level transaction
-        _session = Session(bind=conn)
-
-        # Start a savepoint that we can rollback to in the transaction
-        _session.begin_nested()
-
-        @sqlalchemy.event.listens_for(_session.sync_session, "after_transaction_end")
-        def restart_savepoint(sess, trans):  # type: ignore
-            """Register event listener to clean up the sqla objects of a session after a transaction ends"""
-            if trans.nested and not trans._parent.nested:
-                # Expire all objects registered against the session
-                sess.expire_all()
-                sess.begin_nested()
-
-            yield _session
-
-        yield _session
-
-        # Close the session object
-        await _session.close()
-
-        # Rollback to the savepoint, eliminating everything that happend to the _session
-        await conn.rollback()  # type: ignore
+    async with engine.connect() as conn_:
+        yield conn_
+        await conn_.execute(text("rollback"))

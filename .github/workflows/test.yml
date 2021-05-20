@@ -9,7 +9,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:13
+        image: supabase/postgres:0.14.0
         env:
           POSTGRES_DB: realtime
           POSTGRES_HOST: localhost

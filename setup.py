@@ -44,6 +44,7 @@ DEV_REQUIRES = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "pytest-timeout",
     "sqlalchemy[mypy]>=1.4",
 ]
 
